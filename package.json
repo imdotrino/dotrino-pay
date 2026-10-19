@@ -1,0 +1,32 @@
+{
+  "name": "@dotrino/pay",
+  "version": "0.1.0",
+  "description": "Cobros del ecosistema Dotrino: un cliente por proveedor (PayPal hoy) y el precio con impuestos, para que cada servicio que cobra no escriba el suyo.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./paypal": "./src/paypal.js",
+    "./price": "./src/price.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imdotrino/dotrino-pay.git"
+  },
+  "keywords": [
+    "dotrino",
+    "payments",
+    "paypal"
+  ]
+}
