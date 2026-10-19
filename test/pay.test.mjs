@@ -100,3 +100,16 @@ test('live y sandbox van a sitios distintos', async () => {
   assert.ok(urls.some((u) => u.startsWith('https://api-m.paypal.com/')))
   assert.ok(urls.some((u) => u.startsWith('https://api-m.sandbox.paypal.com/')))
 })
+
+test('devolver: los cobros de una suscripción salen con su id, y ese id es el que se devuelve', async () => {
+  const pp = fakePaypal({
+    'GET /v1/billing/subscriptions/I-ABC123456/transactions?start_time=2026-10-19T00:00:00.000Z&end_time=2026-10-20T00:00:00.000Z': () => [200, { transactions: [{ id: 'CAP1234567', status: 'COMPLETED', time: '2026-10-19T16:21:40Z', amount_with_breakdown: { gross_amount: { value: '5.75' } } }] }],
+    'POST /v2/payments/captures/CAP1234567/refund': () => [201, { id: 'REF7654321', status: 'COMPLETED' }]
+  })
+  const p = paypalClient({ clientId: 'id', secret: 's', fetch: pp.fetch })
+  const pays = await p.subscriptionPayments('I-ABC123456', { since: Date.parse('2026-10-19T00:00:00Z'), until: Date.parse('2026-10-20T00:00:00Z') })
+  assert.deepEqual(pays, [{ id: 'CAP1234567', status: 'COMPLETED', amount: '5.75', time: Date.parse('2026-10-19T16:21:40Z') }])
+  assert.deepEqual(await p.refundCapture('CAP1234567', { note: 'x' }), { id: 'REF7654321', status: 'COMPLETED' })
+  assert.deepEqual(pp.calls.at(-1).body, { note_to_payer: 'x' })
+  await assert.rejects(p.refundCapture('../x'), { code: 'bad-id' })
+})

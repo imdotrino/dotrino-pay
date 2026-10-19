@@ -20,6 +20,7 @@ import { PayError } from './errors.js'
 const BASES = { live: 'https://api-m.paypal.com', sandbox: 'https://api-m.sandbox.paypal.com' }
 const ORDER_ID = /^[A-Z0-9]{6,40}$/
 const SUB_ID = /^I-[A-Z0-9]{6,40}$/
+const CAPTURE_ID = /^[A-Z0-9]{6,40}$/
 
 export function paypalClient ({ clientId, secret, live = false, fetch = globalThis.fetch }) {
   if (!clientId || !secret) throw new PayError('provider-error', 'paypal: clientId and secret are required')
@@ -123,6 +124,26 @@ export function paypalClient ({ clientId, secret, live = false, fetch = globalTh
     async cancelSubscription (id, reason = 'cancelled by the account') {
       check(SUB_ID, id, 'subscription')
       await call(`/v1/billing/subscriptions/${id}/cancel`, { method: 'POST', body: { reason } })
+    },
+
+    /**
+     * Lo que se le ha cobrado a una suscripción entre dos fechas (ms). `id` es el del cobro, el
+     * que se devuelve con `refundCapture`. PayPal apunta el primer cobro unos minutos después
+     * de aprobar: una lista vacía justo al aprobar no quiere decir que no se vaya a cobrar.
+     * @returns {Promise<Array<{ id:string, status:string, amount:string|null, time:number }>>}
+     */
+    async subscriptionPayments (id, { since, until }) {
+      check(SUB_ID, id, 'subscription')
+      const q = `start_time=${new Date(since).toISOString()}&end_time=${new Date(until).toISOString()}`
+      const d = await call(`/v1/billing/subscriptions/${id}/transactions?${q}`)
+      return (d.transactions || []).map((t) => ({ id: t.id, status: t.status, amount: t.amount_with_breakdown?.gross_amount?.value ?? null, time: Date.parse(t.time) }))
+    },
+
+    /** Devuelve un cobro entero. @returns {Promise<{ id:string, status:string }>} */
+    async refundCapture (captureId, { note } = {}) {
+      check(CAPTURE_ID, captureId, 'capture')
+      const d = await call(`/v2/payments/captures/${captureId}/refund`, { method: 'POST', body: note ? { note_to_payer: note } : '{}' })
+      return { id: d.id, status: d.status }
     },
 
     /**
